@@ -1,15 +1,25 @@
 import zeeguu
 from zeeguu.model import Article, UserArticle, UserActivityData, Bookmark
-from zeeguu.model.starred_article import StarredArticle
 
 session = zeeguu.db.session
 
-for sa in Bookmark.query.all():
-    try:
-        urlcrop = str(sa.text.url).split('articleURL=')[-1]
-        article = Article.find_or_create(session, urlcrop)
+visited_url_user_pairs = []
 
-        likes = UserActivityData.find(sa.user,extra_filter='title', extra_value=str(sa.text.url.title),event_filter='UMR - LIKE ARTICLE')
+for bookmark in Bookmark.query.all():
+    try:
+
+        urlcrop = str(bookmark.text.url).split('articleURL=')[-1]
+
+        url_user_hash = urlcrop + bookmark.user.name
+
+        if url_user_hash in visited_url_user_pairs:
+            continue
+
+        visited_url_user_pairs.append(url_user_hash)
+
+        article = Article.find_or_create(session, urlcrop, bookmark.text.language)
+
+        likes = UserActivityData.find(bookmark.user, extra_filter='title', extra_value=str(bookmark.text.url.title), event_filter='UMR - LIKE ARTICLE')
         Nlikes = len(likes)
         #print(sa.url)
         url_end = urlcrop.find("xtor=RSS")
@@ -18,14 +28,14 @@ for sa in Bookmark.query.all():
         else:
             url = str(urlcrop)[:url_end-1]
 
-        last_opened_act = UserActivityData.find_latest(sa.user,extra_filter='articleURL', extra_value=url,event_filter='UMR - OPEN ARTICLE')
+        last_opened_act = UserActivityData.find(bookmark.user, extra_filter='articleURL', extra_value=url, event_filter='UMR - OPEN ARTICLE', only_latest=True)
         if last_opened_act is None:
             last_opened = None
         else:
             last_opened = last_opened_act.time
 
         last_starred = None
-        last_starred_act = UserActivityData.find(sa.user,extra_filter='title', extra_value=sa.text.url.title,event_filter='UMR - STAR ARTICLE')
+        last_starred_act = UserActivityData.find(bookmark.user, extra_filter='title', extra_value=bookmark.text.url.title, event_filter='UMR - STAR ARTICLE')
         if len(last_starred_act) %2 == 1:
             last_starred = last_starred_act[0].time
 
@@ -33,23 +43,24 @@ for sa in Bookmark.query.all():
         if last_opened == None and False:
             print()
             print(urlcrop)
-            activities = UserActivityData.find(sa.user,event_filter='UMR - OPEN ARTICLE')
+            activities = UserActivityData.find(bookmark.user, event_filter='UMR - OPEN ARTICLE')
             print(activities)
             for act in activities:
                 print(act.extra_data)
             print()
         
-        ua = UserArticle.find_or_create(session, sa.user, article,
+        ua = UserArticle.find_or_create(session, bookmark.user, article,
                                         starred=last_starred,
-                                        liked=Nlikes%2==1, opened=last_opened )
+                                        liked=Nlikes%2==1, opened=last_opened)
         if last_opened == None:
-            print(f'Could not find latest opened date {last_starred} x {ua.user.name} x {ua.article.title}')
+            print(f'-- Could not find latest opened date {last_starred} x {ua.user.name} x {ua.article.title}')
 
         session.commit()
-        print(f'{last_starred} x {ua.user.name} x {ua.article.title}')
+        print(f'SUCCESS: {last_starred} x {ua.user.name} x {ua.article.title}')
     except Exception as ex:
-        print(f'could not import {urlcrop}')
-        print(ex)
+        import traceback
+        print(f'-- could not import {urlcrop}')
+        print(traceback.format_exc())
 
             
                 
