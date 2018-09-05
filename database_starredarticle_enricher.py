@@ -1,9 +1,8 @@
 from datetime import datetime
 
-import watchmen
 import zeeguu
 from zeeguu import model
-from zeeguu.model import User, RSSFeed, Url, Article, StarredArticle, DomainName
+from zeeguu.model import User, RSSFeed, Url, Article, DomainName
 
 LOG_CONTEXT = "FEED RETRIEVAL"
 
